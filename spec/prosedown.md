@@ -1,7 +1,7 @@
-# The ProseDown Spec
+# The ProseDown Specification
 
-**Version 0.6.1 — Draft**
-**Date: 2026-04-09**
+**Version 0.6.1**
+**Date: 2026-04-30**
 
 ProseDown is a format for writing books in Markdown and compiling them into [EPUB](https://www.w3.org/TR/epub-33/) — the open standard for digital books used by Apple Books, Kobo, Google Play Books, and most e-readers. Moreover, EPUBs can be sent to Kindle readers through Amazon’s “[Send to Kindle](https://www.amazon.com/gp/sendtokindle)” service. This makes EPUBs the preferred format for prose-style reading content.
 

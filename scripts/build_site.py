@@ -37,7 +37,7 @@ SPEC_PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>The ProseDown Specification — {title}</title>
+<title>The ProseDown Specification {version}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="The full ProseDown specification — a CommonMark + YAML format for writing books in Markdown that compile to EPUB 3.3. RFC 2119 normative language where two compilers need to agree.">
 <meta name="theme-color" content="#0d0d12">

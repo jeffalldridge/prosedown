@@ -445,10 +445,14 @@ class ParsedEpubDocument:
 
 
 def nfc(text: str) -> str:
+    """NFC-normalize Unicode. Used everywhere strings cross a boundary
+    so that visually-identical inputs compare equal."""
     return unicodedata.normalize("NFC", text)
 
 
 def trimmed_string(value: object) -> str | None:
+    """Coerce any frontmatter value to a non-empty NFC-normalized
+    trimmed string, or ``None`` if it's empty/missing."""
     if value is None:
         return None
     text = nfc(str(value)).strip()
@@ -456,6 +460,7 @@ def trimmed_string(value: object) -> str | None:
 
 
 def normalize_path_string(value: str) -> str:
+    """Convert backslashes to forward slashes for portable paths."""
     return value.replace("\\", "/")
 
 
@@ -577,14 +582,27 @@ def title_resolution(meta_title: str | None, first_heading: str | None, fallback
 
 
 def is_remote_url(value: str | None) -> bool:
+    """``True`` if value looks like ``http://``, ``https://``, ``mailto:``,
+    or any other URL scheme. Used to skip rewriting external links."""
     return bool(value and REMOTE_SCHEME_RE.match(value.strip()))
 
 
 def is_absolute_reference(value: str) -> bool:
+    """``True`` for paths starting with ``/`` (POSIX) or ``C:\\`` (Windows).
+    Project-relative refs are checked separately by the validator."""
     return value.startswith("/") or WINDOWS_ABS_RE.match(value) is not None
 
 
 def role_to_types(role: str, slug: str) -> tuple[str, str, str | None]:
+    """Map a ProseDown role to its three EPUB attributes.
+
+    Returns ``(structural_type, semantic_type, aria_role)``. The
+    structural type is the top-level grouping (``bodymatter``,
+    ``frontmatter``, ``backmatter``). Semantic type is the specific
+    role (``chapter``, ``preface``, ``afterword``, …). ARIA role is
+    set for chapters and parts; ``None`` for front- and backmatter
+    where the structural type carries enough meaning.
+    """
     if role == "part":
         return "bodymatter", "part", "doc-part"
     if role == "frontmatter":
@@ -595,6 +613,9 @@ def role_to_types(role: str, slug: str) -> tuple[str, str, str | None]:
 
 
 def media_type_for_path(path: str | Path) -> str | None:
+    """Look up the EPUB-required MIME type for a file by extension.
+    Returns ``None`` for unsupported extensions (a manifest-time error).
+    """
     suffix = Path(path).suffix.lower()
     return {
         ".css": "text/css",
@@ -611,6 +632,13 @@ def media_type_for_path(path: str | Path) -> str | None:
 
 
 def read_utf8_text(path: Path, diagnostics: DiagnosticBag) -> str | None:
+    """Read a UTF-8 text file with line-ending normalization.
+
+    Strips a UTF-8 BOM if present, normalizes ``\\r\\n`` and ``\\r`` to
+    ``\\n``, and emits a diagnostic on any UTF-8 decode error. NUL
+    bytes in source files are an error per the spec — the file is
+    rejected rather than silently sanitized.
+    """
     try:
         data = path.read_bytes()
     except OSError as exc:
@@ -658,6 +686,12 @@ def split_frontmatter(text: str, source: Path | str, diagnostics: DiagnosticBag)
 
 
 def load_markdown_file(path: Path, project_root: Path, diagnostics: DiagnosticBag) -> ParsedMarkdownFile | None:
+    """Read + parse one Markdown file, returning a structured record.
+
+    Combines :func:`read_utf8_text` and :func:`split_frontmatter` and
+    captures the project-relative path for diagnostics. Returns
+    ``None`` on any read/parse error.
+    """
     text = read_utf8_text(path, diagnostics)
     if text is None:
         return None
@@ -699,6 +733,22 @@ def validate_project_relative_path(
     source: Path | str,
     allow_markdown_only: bool = False,
 ) -> tuple[Path, str] | None:
+    """Validate and resolve a path that came from frontmatter.
+
+    Enforces the spec's path-safety rules: no absolute paths, no
+    ``..`` traversal, no hidden / draft files, no escape from the
+    project root. Returns the resolved filesystem path and the
+    POSIX-style project-relative form on success, ``None`` (with a
+    diagnostic) on failure.
+
+    :param raw_value: Whatever the user wrote in YAML.
+    :param project_root: Resolved root of the project (cap on escapes).
+    :param base_dir: Directory the relative path is anchored to (the
+        chapter's source dir, typically).
+    :param label: Human-readable name of the field for diagnostics.
+    :param allow_markdown_only: If ``True``, additionally reject any
+        non-``.md`` target.
+    """
     raw_text = trimmed_string(raw_value)
     if raw_text is None:
         diagnostics.error(f"{label} path is empty", source)
@@ -730,6 +780,14 @@ def validate_project_relative_path(
 
 
 def check_case_collisions(project_root: Path, diagnostics: DiagnosticBag) -> None:
+    """Warn when two files differ only by case.
+
+    Catches portability bugs early: macOS and Windows are typically
+    case-insensitive but Linux is not, so ``Cover.jpg`` and
+    ``cover.jpg`` in the same project will compile inconsistently
+    across platforms. We warn (not error) because the build can still
+    succeed.
+    """
     seen: dict[str, str] = {}
     for path in project_root.rglob("*"):
         if not path.is_file():
@@ -743,6 +801,16 @@ def check_case_collisions(project_root: Path, diagnostics: DiagnosticBag) -> Non
 
 
 def discover_chapters(project_root: Path, diagnostics: DiagnosticBag) -> list[Path] | None:
+    """Auto-discover chapter files in a multi-file project.
+
+    Picks up every ``NN-*.md`` in the project root, sorted by numeric
+    prefix. ``book.md``, hidden files (``.``-prefixed) and draft files
+    (``_``-prefixed) are skipped. Files without a numeric prefix
+    produce a warning so the author knows they aren't being included.
+    Duplicate numeric prefixes are an error (ambiguous order). Returns
+    a list of paths in build order, or ``None`` on duplicate-prefix
+    error.
+    """
     discovered: list[tuple[int, str, Path]] = []
     seen_numbers: dict[int, str] = {}
     for path in sorted(project_root.iterdir(), key=lambda item: item.name):
@@ -771,6 +839,17 @@ def discover_chapters(project_root: Path, diagnostics: DiagnosticBag) -> list[Pa
 
 
 def resolve_chapter_paths(project_root: Path, book_meta: dict, diagnostics: DiagnosticBag) -> list[Path] | None:
+    """Pick the chapter list using the documented precedence.
+
+    1. Explicit ``chapters: [...]`` in ``book.md`` frontmatter, in the
+       order given. Each entry validated via :func:`validate_project_relative_path`.
+    2. Auto-discovery via :func:`discover_chapters` if no ``chapters:``
+       was set.
+
+    An empty ``chapters: []`` is interpreted as "single-file project"
+    and returns an empty list (the caller treats book.md as the only
+    chapter).
+    """
     chapter_list = book_meta.get("chapters")
     if chapter_list == []:
         chapter_list = None
@@ -1671,6 +1750,18 @@ def build_opf(
     cover_href: str | None,
     assets: list[ContentAsset],
 ) -> bytes:
+    """Generate the EPUB ``content.opf`` package document as bytes.
+
+    The OPF is the central manifest of an EPUB — it lists every
+    resource (chapters, images, CSS, navigation), declares Dublin
+    Core metadata (title, creator, identifier, language,
+    modified-date), and defines the reading order via the spine.
+    Output is XHTML-strict, validates against EPUB 3.3, and is
+    deterministic — same inputs produce the same bytes.
+
+    See https://www.w3.org/TR/epub-33/#sec-package-doc for the
+    formal package-document spec.
+    """
     book_title = metadata["title"]
     authors = metadata["authors"]
     language = metadata["language"]
@@ -1801,6 +1892,9 @@ def build_opf(
 
 
 def container_xml() -> bytes:
+    """Render the constant ``META-INF/container.xml`` for an EPUB.
+    Points the reading system at our ``OEBPS/content.opf`` package.
+    """
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n'
@@ -1812,6 +1906,11 @@ def container_xml() -> bytes:
 
 
 def zipinfo_for(path: str, modified: datetime, compress_type: int = zipfile.ZIP_DEFLATED) -> zipfile.ZipInfo:
+    """Build a ``zipfile.ZipInfo`` with stable metadata for an EPUB
+    archive entry. The mtime is forced to the project's modified date
+    (rounded to seconds, no sub-second drift) so two builds with the
+    same source produce byte-identical archives.
+    """
     info = zipfile.ZipInfo(path)
     dt = modified.astimezone(timezone.utc)
     info.date_time = (max(1980, dt.year), dt.month, dt.day, dt.hour, dt.minute, dt.second)
@@ -1821,6 +1920,13 @@ def zipinfo_for(path: str, modified: datetime, compress_type: int = zipfile.ZIP_
 
 
 def write_epub_archive(output_path: Path, modified: datetime, files: list[tuple[str, bytes]], diagnostics: DiagnosticBag) -> bool:
+    """Pack the EPUB into a ZIP at ``output_path``.
+
+    Per the EPUB 3.3 spec the ``mimetype`` file MUST be the first
+    entry, MUST be uncompressed, and MUST NOT have an extra field. The
+    rest of the archive is deflated. Returns ``True`` on success;
+    ``False`` (with a diagnostic) on filesystem error.
+    """
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(output_path, "w") as zf:
@@ -1988,11 +2094,19 @@ def build(project_path: str, output_path: str | None = None) -> bool:
 
 
 def parse_xml(data: bytes) -> etree._Element:
+    """Parse XML bytes into an lxml element. Centralized so we can
+    consistently lock down the parser (no DTD loading, no entity
+    expansion) when reading untrusted EPUB input.
+    """
     parser = etree.XMLParser(recover=True, remove_blank_text=False)
     return etree.fromstring(data, parser=parser)
 
 
 def epub_rootfile(zip_file: zipfile.ZipFile) -> str:
+    """Read ``META-INF/container.xml`` from an EPUB to find the
+    OPF package document's path. EPUB doesn't fix the OPF location,
+    so we always have to look it up.
+    """
     container = parse_xml(zip_file.read("META-INF/container.xml"))
     rootfile = container.find(".//container:rootfile", XML_NAMESPACES)
     if rootfile is None:
@@ -2001,6 +2115,13 @@ def epub_rootfile(zip_file: zipfile.ZipFile) -> str:
 
 
 def manifest_items(opf_root: etree._Element, opf_path: str) -> tuple[dict[str, dict], list[dict], dict[str, list[dict]]]:
+    """Parse the OPF ``<manifest>`` into useful indexes.
+
+    Returns three structures: by-id (lookup map), in-order (manifest
+    iteration), and by-media-type (e.g. all ``image/*``). Hrefs are
+    resolved relative to the OPF's location so callers always have
+    EPUB-root paths.
+    """
     base_dir = PurePosixPath(opf_path).parent
     items: dict[str, dict] = {}
     by_href: dict[str, list[dict]] = defaultdict(list)
@@ -2102,6 +2223,13 @@ def text_content_without_tags(value: str | None) -> str | None:
 
 
 def parse_epub_metadata(opf_root: etree._Element) -> dict:
+    """Extract Dublin Core + EPUB metadata from the OPF.
+
+    Pulls title, creator(s), language, identifier, publisher, date,
+    description, rights, plus any ``<meta>`` refines that override
+    them (creator file-as, role, etc.). Returns a dict suitable for
+    use as the deconstructed project's ``book.md`` frontmatter.
+    """
     package_unique_id = opf_root.get("unique-identifier")
     metadata_el = opf_root.find("opf:metadata", XML_NAMESPACES)
     result: dict = {}
@@ -2281,6 +2409,11 @@ def cover_href_from_opf(opf_root: etree._Element, manifest: dict[str, dict]) -> 
 
 
 def spine_document_hrefs(opf_root: etree._Element, manifest: dict[str, dict]) -> list[str]:
+    """Walk the OPF ``<spine>`` and return content-document hrefs in
+    reading order. Skips items marked ``linear="no"`` (auxiliary
+    content like ads, page-break markers) which aren't part of the
+    main reading flow we round-trip into Markdown.
+    """
     spine = opf_root.find("opf:spine", XML_NAMESPACES)
     if spine is None:
         return []
@@ -2365,6 +2498,11 @@ def toc_override_for_document(href: str, role: str, included_docs: set[str]) -> 
 
 
 def gather_body_root(soup: BeautifulSoup) -> Tag | BeautifulSoup:
+    """Return the most specific containing element for a chapter's
+    actual body content — preferring ``<main>``, then ``<body>``, then
+    the document root. Used to skip wrapper boilerplate during the
+    XHTML → Markdown conversion.
+    """
     body = soup.find("body")
     if body is None:
         return soup
@@ -2692,6 +2830,13 @@ class MarkdownRenderer:
 
 
 def collect_footnotes(soup: BeautifulSoup) -> list[tuple[str, str]]:
+    """Pull EPUB-style footnotes into a normalized list.
+
+    Looks for ``<aside epub:type="footnote">`` plus the older
+    ``role="doc-footnote"`` and ``id``-based conventions. Returns
+    ``(id, body_text)`` tuples in document order, ready for the
+    deconstructor to emit as Markdown ``[^id]: ...`` definitions.
+    """
     collected = []
     for aside in list(soup.find_all("aside")):
         if "footnote" not in extract_epub_type(aside) and aside.get("role") != "doc-footnote":
@@ -2711,6 +2856,11 @@ def collect_footnotes(soup: BeautifulSoup) -> list[tuple[str, str]]:
 
 
 def serialize_frontmatter(meta: dict) -> str:
+    """Emit a YAML frontmatter block (with ``---`` delimiters)
+    suitable for prepending to a Markdown body. Keys come out in a
+    documented stable order so two deconstructions of the same
+    EPUB produce identical book.md frontmatter.
+    """
     return "---\n" + yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).rstrip() + "\n---\n"
 
 
@@ -2884,17 +3034,34 @@ def main() -> None:
 
     build_parser = subparsers.add_parser("build", help="ProseDown → EPUB")
     build_parser.add_argument("input", help="Path to a single .md file or project directory")
-    build_parser.add_argument("--output", "-o", help="Output EPUB path")
+    build_parser.add_argument(
+        "output",
+        nargs="?",
+        default=None,
+        help="Output EPUB path (optional; defaults to a slugified title next to the source).",
+    )
+    # `-o/--output` retained as an alias for the positional arg so existing
+    # scripts that wrote `prosedown build foo.md --output bar.epub` keep working.
+    build_parser.add_argument("--output", "-o", dest="output_flag", default=None,
+                              help=argparse.SUPPRESS)
 
     deconstruct_parser = subparsers.add_parser("deconstruct", help="EPUB → ProseDown")
     deconstruct_parser.add_argument("input", help="Path to an EPUB file")
-    deconstruct_parser.add_argument("--output", "-o", help="Output directory")
+    deconstruct_parser.add_argument(
+        "output",
+        nargs="?",
+        default=None,
+        help="Output directory (optional; defaults to a folder named after the book).",
+    )
+    deconstruct_parser.add_argument("--output", "-o", dest="output_flag", default=None,
+                                    help=argparse.SUPPRESS)
 
     args = parser.parse_args()
+    output = getattr(args, "output", None) or getattr(args, "output_flag", None)
     if args.command == "build":
-        ok = build(args.input, args.output)
+        ok = build(args.input, output)
     elif args.command == "deconstruct":
-        ok = deconstruct(args.input, args.output)
+        ok = deconstruct(args.input, output)
     else:
         parser.print_help()
         sys.exit(1)

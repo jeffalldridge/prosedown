@@ -8,6 +8,47 @@ until 1.0.
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-04-30
+
+Patch release — quickstart copy-paste now works, plus polish.
+
+### Fixed
+
+- **CLI: positional ``output`` argument.** The README, live site, and
+  quickstart all showed
+  ``prosedown build foo.md foo.epub``, but the CLI rejected that —
+  the second arg required ``--output`` / ``-o``. The CLI now accepts
+  positional output (with ``--output`` / ``-o`` retained as a hidden
+  alias for backwards compat). Library API unchanged.
+- **Spec: ``# The ProseDown Spec`` renamed to ``The ProseDown
+  Specification``** and the leading ``Version 0.6.1 — Draft`` line
+  dropped the ``— Draft`` suffix. The spec is published and stable;
+  ``Draft`` was misleading post-release.
+- **Site: spec page title is no longer duplicative**
+  (``The ProseDown Specification — The ProseDown Specification``).
+
+### Added
+
+- **Docstrings on ~25 more internal functions** in
+  ``src/prosedown/__init__.py``. Function-level coverage went from
+  17% → 40%; classes were already at 100%. Public API was already
+  documented; this pass covered ``build_opf``,
+  ``parse_epub_metadata``, ``discover_chapters``,
+  ``resolve_chapter_paths``, ``validate_project_relative_path``,
+  ``write_epub_archive``, ``zipinfo_for``, and the OPF/spine/metadata
+  parsing helpers — the kinds of functions a reader of the source
+  would actually look up.
+- **``.github/dependabot.yml``** — weekly auto-PRs for ``pip`` and
+  ``github-actions`` ecosystems. Patch + minor bumps grouped per
+  ecosystem; majors get individual PRs because they need closer
+  review. Standard practice for security/dependency hygiene.
+
+### Changed
+
+- **README license badge** is now
+  ``shields.io/pypi/l/prosedown`` (auto-derived from PyPI metadata)
+  instead of a hardcoded ``License: MIT`` string.
+
 ## [0.6.1] — 2026-04-30
 
 Initial public release.

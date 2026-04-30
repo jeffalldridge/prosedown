@@ -8,7 +8,7 @@
 [![CI](https://github.com/jeffalldridge/prosedown/actions/workflows/ci.yml/badge.svg)](https://github.com/jeffalldridge/prosedown/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/prosedown)](https://pypi.org/project/prosedown/)
 [![Python](https://img.shields.io/pypi/pyversions/prosedown)](https://pypi.org/project/prosedown/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/pypi/l/prosedown)](LICENSE)
 [![EPUB 3.3](https://img.shields.io/badge/EPUB-3.3-green)](https://www.w3.org/TR/epub-33/)
 
 **🌐 [jeffalldridge.github.io/prosedown](https://jeffalldridge.github.io/prosedown/)** — live site, full spec, cheat sheet.

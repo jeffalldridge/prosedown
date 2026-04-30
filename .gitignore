@@ -18,6 +18,13 @@ dist/
 wheels/
 .eggs/
 
+# Generated site artifacts (rebuilt by Scripts/build_site.py on deploy)
+docs/site/spec/index.html
+docs/site/sitemap.xml
+docs/site/robots.txt
+docs/site/manifest.webmanifest
+_site/
+
 # Test artifacts
 .pytest_cache/
 .coverage

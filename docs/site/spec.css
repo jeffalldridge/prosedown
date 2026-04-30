@@ -1,0 +1,228 @@
+/* Spec page typography — long-form reading on top of style.css */
+
+.spec-hero {
+    padding: 56px 0 32px;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, #11111a 0%, var(--bg) 100%);
+}
+
+.spec-hero h1 {
+    font-size: clamp(28px, 5vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 8px 0 12px;
+}
+
+.spec-hero .lede {
+    margin: 0 0 14px;
+}
+
+.breadcrumb {
+    color: var(--dim);
+    font-size: 14px;
+    margin: 0 0 4px;
+}
+
+.breadcrumb a {
+    color: var(--muted);
+    border-bottom: none;
+}
+
+.breadcrumb a:hover {
+    color: var(--accent);
+}
+
+.breadcrumb span[aria-hidden] {
+    margin: 0 6px;
+    color: var(--dim);
+}
+
+.spec-meta {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0;
+}
+
+.spec-meta a {
+    color: var(--muted);
+}
+
+.spec-meta a:hover {
+    color: var(--accent);
+}
+
+/* ========== Article body ========== */
+
+article.spec {
+    padding: 56px 0 80px;
+    max-width: 720px;
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--text);
+}
+
+article.spec h1 {
+    /* The h1 in the source becomes a section anchor; the page already has
+       an h1 in the hero, so demote spec h1 visually. */
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 56px 0 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+}
+
+article.spec h1:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+article.spec h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 40px 0 12px;
+    color: var(--text);
+}
+
+article.spec h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 28px 0 10px;
+    color: var(--text);
+}
+
+article.spec h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 22px 0 8px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+article.spec p {
+    margin: 0 0 16px;
+    max-width: none;
+}
+
+article.spec a {
+    color: var(--accent);
+}
+
+article.spec code {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--kw);
+}
+
+article.spec pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 0 0 18px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+article.spec pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text);
+}
+
+article.spec ul,
+article.spec ol {
+    padding-left: 28px;
+    margin: 0 0 18px;
+}
+
+article.spec li {
+    margin-bottom: 6px;
+}
+
+article.spec blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 16px 0;
+    padding: 4px 0 4px 18px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+article.spec hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 36px 0;
+}
+
+article.spec table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 22px;
+    font-size: 14px;
+}
+
+article.spec th,
+article.spec td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+}
+
+article.spec th {
+    color: var(--text);
+    font-weight: 600;
+    border-bottom: 2px solid var(--rule);
+}
+
+article.spec td code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--kw);
+}
+
+/* Anchor link icons next to headings (markdown-toc plugin) */
+
+article.spec .headerlink {
+    color: var(--dim);
+    text-decoration: none;
+    font-size: 0.85em;
+    margin-left: 6px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    border-bottom: none;
+}
+
+article.spec h1:hover .headerlink,
+article.spec h2:hover .headerlink,
+article.spec h3:hover .headerlink,
+article.spec h4:hover .headerlink {
+    opacity: 1;
+}
+
+article.spec .headerlink:hover {
+    color: var(--accent);
+}
+
+/* Footnotes — the markdown extension renders them as a section at the bottom */
+
+article.spec .footnote {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 14px;
+}
+
+article.spec .footnote ol {
+    padding-left: 22px;
+    color: var(--muted);
+}

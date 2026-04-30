@@ -1,16 +1,18 @@
 name: Deploy to GitHub Pages
 
-# Publishes the static landing site under docs/site/ to GitHub Pages.
-# Live URL: https://jeffalldridge.github.io/prosedown/
+# Builds the static landing site under docs/site/ plus the spec page
+# rendered from spec/prosedown.md, plus sitemap.xml / robots.txt /
+# manifest.webmanifest, and publishes everything to GitHub Pages.
 #
-# No Jekyll, no build step — just a hand-tuned HTML + CSS pair plus
-# the .nojekyll marker so Pages serves the directory raw.
+# Live URL: https://jeffalldridge.github.io/prosedown/
 
 on:
   push:
     branches: [main]
     paths:
       - "docs/site/**"
+      - "spec/prosedown.md"
+      - "scripts/build_site.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -31,6 +33,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install renderer dependency
+        run: pip install --quiet markdown
+
+      - name: Render spec → HTML and emit sitemap/robots/manifest
+        run: python scripts/build_site.py
 
       - name: Stage site
         run: |

@@ -48,7 +48,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
+      # On tag push, the tag must match the package version exactly.
+      # On manual workflow_dispatch (used as a dry-run from main), skip the
+      # check — the publish + release jobs are also gated on a tag below.
       - name: Verify tag matches package version
+        if: github.event_name == 'push'
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
@@ -73,6 +77,10 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
+    # Only fire on a real tag push, not a manual workflow_dispatch dry-run.
+    # That way `gh workflow run release.yml` validates the build pipeline
+    # without ever touching PyPI.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -91,6 +99,8 @@ jobs:
 
   release-github:
     name: Create GitHub Release
+    # Only fire on a real tag push.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: publish-pypi
     runs-on: ubuntu-latest
     timeout-minutes: 5

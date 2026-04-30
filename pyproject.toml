@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "prosedown"
 version = "0.6.1"
-description = "Write books in Markdown, compile to EPUB. Like Fountain for screenplays."
+description = "Write books in Markdown, compile to EPUB 3.3 — and deconstruct existing EPUBs back to readable Markdown (best-effort). Like Fountain for screenplays."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

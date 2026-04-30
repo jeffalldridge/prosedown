@@ -88,12 +88,12 @@ SPEC_PAGE_TEMPLATE = """<!DOCTYPE html>
             "author": {{
                 "@type": "Person",
                 "name": "Jeff Alldridge",
-                "url": "https://tent.studio"
+                "url": "https://tentstudios.com"
             }},
             "publisher": {{
                 "@type": "Organization",
                 "name": "Tent Studios, LLC",
-                "url": "https://tent.studio"
+                "url": "https://tentstudios.com"
             }},
             "isPartOf": {{
                 "@id": "{site_url}#website"
@@ -162,7 +162,7 @@ SPEC_PAGE_TEMPLATE = """<!DOCTYPE html>
 
 <footer class="footer">
     <div class="container">
-        <p>By <a href="https://tent.studio">Tent Studios, LLC</a>. MIT licensed. <a href="https://github.com/jeffalldridge/prosedown">Source on GitHub</a> · <a href="../">Home</a> · <a href="https://github.com/jeffalldridge/prosedown/blob/main/ROADMAP.md">Roadmap</a></p>
+        <p>By <a href="https://tentstudios.com">Tent Studios, LLC</a>. MIT licensed. <a href="https://github.com/jeffalldridge/prosedown">Source on GitHub</a> · <a href="../">Home</a> · <a href="https://github.com/jeffalldridge/prosedown/blob/main/ROADMAP.md">Roadmap</a></p>
     </div>
 </footer>
 

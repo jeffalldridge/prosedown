@@ -13,7 +13,7 @@
 
 **🌐 [jeffalldridge.github.io/prosedown](https://jeffalldridge.github.io/prosedown/)** — live site, full spec, cheat sheet.
 
-By [Tent Studios, LLC](https://tent.studio).
+By [Tent Studios, LLC](https://tentstudios.com).
 
 ---
 

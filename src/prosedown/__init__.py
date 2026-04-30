@@ -1,11 +1,43 @@
 #!/usr/bin/env python3
+"""ProseDown — Markdown ↔ EPUB compiler and deconstructor.
+
+ProseDown is a format for writing books in Markdown and compiling them
+to EPUB 3.3. This module is the reference implementation, conforming to
+the spec at ``spec/prosedown.md`` (in this repository).
+
+Two directions, with different stability promises:
+
+- :func:`build` (Markdown → EPUB) is the **primary use case**. Stable,
+  reproducible, deterministic. Same source, same output. Output passes
+  EPUBCheck without errors.
+- :func:`deconstruct` (EPUB → Markdown) is **best-effort** with documented
+  normalization. The goal is readable Markdown an author would want to
+  edit, not a lossless archive of the original EPUB.
+
+Library use::
+
+    from prosedown import build, deconstruct
+    build("path/to/project", "out.epub")
+    deconstruct("book.epub", "recovered/")
+
+CLI use::
+
+    prosedown build path/to/project out.epub
+    prosedown deconstruct book.epub recovered/
+
+Public API:
+
+- Functions: :func:`build`, :func:`deconstruct`, :func:`parse_frontmatter`,
+  :func:`slugify`, :func:`title_resolution`, :func:`canonical_uuid_input`,
+  :func:`deterministic_uuid`, :func:`smartypants_segment`
+- Classes: :class:`MarkdownRenderer`, :class:`Diagnostic`,
+  :class:`DiagnosticBag`, :class:`BuildDocument`,
+  :class:`ParsedEpubDocument`
+
+The full API is exported via ``__all__`` below.
+"""
+
 from __future__ import annotations
-
-"""
-ProseDown CLI
-
-Spec-first ProseDown v0.5 compiler and deconstructor.
-"""
 
 import argparse
 import html
@@ -27,6 +59,53 @@ import markdown
 import yaml
 from bs4 import BeautifulSoup, NavigableString, Tag
 from lxml import etree
+
+
+# ----------------------------------------------------------------------------
+# Package metadata
+# ----------------------------------------------------------------------------
+
+# Resolve the version from installed package metadata so it stays in sync with
+# pyproject.toml. Fall back to a sentinel for in-place runs against a checkout
+# without an installed dist (e.g. `python tests/test_suite.py` from a fresh
+# clone before `pip install -e .`).
+try:
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
+    __version__ = _pkg_version("prosedown")
+except PackageNotFoundError:  # pragma: no cover — only hit in dev without an install
+    __version__ = "0.0.0+local"
+
+__all__ = [
+    "__version__",
+    # primary entry points
+    "build",
+    "deconstruct",
+    "main",
+    # parsing helpers
+    "parse_frontmatter",
+    "split_frontmatter",
+    # diagnostics
+    "Diagnostic",
+    "DiagnosticBag",
+    # data models
+    "BuildDocument",
+    "ParsedMarkdownFile",
+    "ParsedEpubDocument",
+    "ContentAsset",
+    "HeadingEntry",
+    "TocEntry",
+    # rendering
+    "MarkdownRenderer",
+    # well-tested utilities (used by tests + downstream tools)
+    "slugify",
+    "deslugify",
+    "title_resolution",
+    "canonical_uuid_input",
+    "deterministic_uuid",
+    "smartypants_segment",
+    "normalize_author_list",
+]
 
 
 PROSEDOWN_UUID_NAMESPACE = uuid.UUID("a0b1c2d3-e4f5-6789-abcd-ef0123456789")
@@ -194,6 +273,19 @@ VOID_ELEMENTS = {"img", "br", "hr", "meta", "link"}
 
 @dataclass
 class Diagnostic:
+    """A build / deconstruct issue.
+
+    Diagnostics are accumulated into a :class:`DiagnosticBag` during
+    parsing, validation, rendering, and packaging. They are emitted at the
+    end of the run so the user sees a coherent summary instead of being
+    bombarded mid-build.
+
+    :param level: ``"error"`` or ``"warning"``. Errors fail the build;
+        warnings do not.
+    :param message: Human-readable description.
+    :param path: Optional source-file path the diagnostic refers to.
+    """
+
     level: str
     message: str
     path: str | None = None
@@ -201,19 +293,31 @@ class Diagnostic:
 
 @dataclass
 class DiagnosticBag:
+    """Accumulates diagnostics during a build / deconstruct run.
+
+    Use :meth:`error` or :meth:`warn` to add issues; :meth:`emit` at the
+    end of the run prints them all to stdout/stderr in a stable order.
+    :attr:`has_errors` is what the public functions check to decide their
+    boolean return value.
+    """
+
     items: list[Diagnostic] = field(default_factory=list)
 
     def error(self, message: str, path: str | Path | None = None) -> None:
+        """Record an error. The build will fail if any are present."""
         self.items.append(Diagnostic("error", message, None if path is None else str(path)))
 
     def warn(self, message: str, path: str | Path | None = None) -> None:
+        """Record a warning. Doesn't fail the build."""
         self.items.append(Diagnostic("warning", message, None if path is None else str(path)))
 
     @property
     def has_errors(self) -> bool:
+        """True if any error-level diagnostic has been recorded."""
         return any(item.level == "error" for item in self.items)
 
     def emit(self) -> None:
+        """Print all diagnostics. Errors → stderr, warnings → stdout."""
         for item in self.items:
             prefix = "Error" if item.level == "error" else "Warning"
             if item.path:
@@ -224,6 +328,17 @@ class DiagnosticBag:
 
 @dataclass
 class ParsedMarkdownFile:
+    """A Markdown file that has been read and split into frontmatter + body.
+
+    The body is the raw Markdown text below the frontmatter; rendering to
+    XHTML happens later in the pipeline via :class:`MarkdownRenderer`.
+
+    :param path: Filesystem path to the source file.
+    :param source_ref: Project-relative reference used in diagnostics.
+    :param meta: Decoded YAML frontmatter dict. May be empty.
+    :param body: Raw Markdown text below the frontmatter.
+    """
+
     path: Path
     source_ref: str
     meta: dict
@@ -232,6 +347,12 @@ class ParsedMarkdownFile:
 
 @dataclass
 class HeadingEntry:
+    """One heading discovered while rendering Markdown.
+
+    Used to build chapter-internal navigation and the auto-generated
+    table of contents.
+    """
+
     level: int
     text: str
     anchor: str
@@ -240,6 +361,12 @@ class HeadingEntry:
 
 @dataclass
 class TocEntry:
+    """One entry in the EPUB's navigation document.
+
+    EPUB 3 requires a ``nav`` element; this models a single hierarchical
+    item before serialization to XHTML.
+    """
+
     title: str
     href: str
     children: list["TocEntry"] = field(default_factory=list)
@@ -247,6 +374,18 @@ class TocEntry:
 
 @dataclass
 class BuildDocument:
+    """One source file resolved into all the data the pipeline needs.
+
+    Created during ``build``'s resolution phase: each Markdown file (or
+    the single-file project) becomes one ``BuildDocument``. Carries the
+    parsed frontmatter, raw Markdown, derived title, EPUB role
+    (``cover`` / ``titlepage`` / ``chapter`` / etc.), navigation flags,
+    and — after rendering — the generated XHTML body.
+
+    Most fields are populated by the resolution pass; :attr:`html_body`
+    and :attr:`heading_entries` get filled in by :class:`MarkdownRenderer`.
+    """
+
     source_ref: str
     source_path: Path | None
     source_slug: str
@@ -274,6 +413,12 @@ class BuildDocument:
 
 @dataclass
 class ContentAsset:
+    """A binary asset (image, font, etc.) referenced by the project.
+
+    Resolved relative to the project root and packaged into the EPUB
+    under the same href used in the Markdown source.
+    """
+
     href: str
     data: bytes
     media_type: str
@@ -281,6 +426,14 @@ class ContentAsset:
 
 @dataclass
 class ParsedEpubDocument:
+    """One spine document extracted from an EPUB during deconstruction.
+
+    Holds enough state for the deconstructor to convert the XHTML back
+    to clean Markdown: the parsed BeautifulSoup tree, the document's
+    role (cover / titlepage / chapter / etc.), and the slug to use when
+    naming the output Markdown file.
+    """
+
     spine_index: int
     href: str
     title: str | None
@@ -307,6 +460,18 @@ def normalize_path_string(value: str) -> str:
 
 
 def slugify(text: str | None) -> str:
+    """Lowercase, hyphen-separated, ASCII-alphanumeric form of ``text``.
+
+    Used for filenames inside the EPUB (chapter HTMLs, internal anchors,
+    asset hrefs). Preserves Unicode letters' alphanumeric status via
+    :func:`str.isalnum` so non-ASCII titles get sensible slugs. Returns
+    ``"section"`` if the input collapses to nothing.
+
+        >>> slugify("Chapter 1: The Beginning")
+        'chapter-1-the-beginning'
+        >>> slugify(None)
+        'section'
+    """
     value = nfc(text or "").lower()
     value = value.replace("_", "-")
     value = re.sub(r"\s+", "-", value)
@@ -317,6 +482,13 @@ def slugify(text: str | None) -> str:
 
 
 def deslugify(slug: str) -> str:
+    """Inverse of :func:`slugify` for display.
+
+    Used as a fallback chapter title when no frontmatter title is set
+    and the chapter has no ``# heading``. ``"about-the-author"`` →
+    ``"About The Author"``. Not perfect (lowercases like "the" stay
+    capitalized) but fine for synthesized titles.
+    """
     words = re.sub(r"[-_]+", " ", slug).strip()
     if not words:
         return "Section"
@@ -324,6 +496,14 @@ def deslugify(slug: str) -> str:
 
 
 def detect_role_from_slug(slug: str) -> str:
+    """Classify a chapter file by its slug.
+
+    Returns one of ``"frontmatter"``, ``"part"``, ``"backmatter"``, or
+    ``"chapter"``. Used to set the EPUB ``epub:type`` attribute and the
+    navigation hierarchy. Recognized slugs (``copyright``, ``dedication``,
+    ``part-1``, ``afterword``, etc.) are listed in
+    ``FRONTMATTER_SLUGS`` / ``BACKMATTER_SLUGS`` / ``PART_RE`` above.
+    """
     key = slug.lower().replace("_", "-")
     if key in FRONTMATTER_SLUGS:
         return "frontmatter"
@@ -335,6 +515,13 @@ def detect_role_from_slug(slug: str) -> str:
 
 
 def normalize_author_list(value: object) -> list[str]:
+    """Coerce frontmatter ``author`` into a list of cleaned strings.
+
+    YAML allows ``author: "Jane Smith"`` (string) or
+    ``author: ["Jane Smith", "John Doe"]`` (list). Either form is
+    accepted; the result is always a list (possibly empty) of trimmed,
+    NFC-normalized strings.
+    """
     if isinstance(value, list):
         items = [trimmed_string(item) for item in value]
         return [item for item in items if item]
@@ -343,6 +530,15 @@ def normalize_author_list(value: object) -> list[str]:
 
 
 def canonical_uuid_input(title: str, authors: list[str], language: str) -> str:
+    """Build the canonical input string for the deterministic EPUB UUID.
+
+    Joins title + authors + language with ``|`` after NFC normalization
+    and trimming. Same input produces the same UUID across machines and
+    runs, so building the same project twice produces an identical EPUB
+    (modulo timestamps).
+
+    Used by :func:`deterministic_uuid`.
+    """
     clean_title = nfc(title.strip())
     clean_authors = [nfc(author.strip()) for author in authors]
     clean_language = nfc(language.strip())
@@ -350,10 +546,29 @@ def canonical_uuid_input(title: str, authors: list[str], language: str) -> str:
 
 
 def deterministic_uuid(title: str, authors: list[str], language: str) -> str:
+    """Generate the EPUB ``dc:identifier`` deterministically from metadata.
+
+    EPUB requires a unique identifier; ProseDown derives one with UUID v5
+    over a fixed namespace (``PROSEDOWN_UUID_NAMESPACE``) and the
+    canonical input from :func:`canonical_uuid_input`. Two builds of the
+    same project produce the same identifier, which makes the output
+    reproducible — diff-friendly under git.
+    """
     return str(uuid.uuid5(PROSEDOWN_UUID_NAMESPACE, canonical_uuid_input(title, authors, language)))
 
 
 def title_resolution(meta_title: str | None, first_heading: str | None, fallback_slug: str) -> str:
+    """Pick a chapter title using the documented precedence.
+
+    Per the spec:
+
+    1. Frontmatter ``title`` if set
+    2. Otherwise the first ``#`` heading in the body
+    3. Otherwise a deslugified version of the filename
+
+    Same logic applies during deconstruction so round-trips preserve the
+    title source.
+    """
     if meta_title is not None:
         return meta_title
     if first_heading is not None:
@@ -413,6 +628,16 @@ def read_utf8_text(path: Path, diagnostics: DiagnosticBag) -> str | None:
 
 
 def split_frontmatter(text: str, source: Path | str, diagnostics: DiagnosticBag) -> tuple[dict, str] | tuple[None, None]:
+    """Parse YAML frontmatter at the top of a Markdown file.
+
+    Frontmatter is a YAML block delimited by ``---`` lines at the very
+    start of the file. Anything before the opening ``---`` is treated
+    as no-frontmatter (returns ``({}, text)``). Malformed YAML or a
+    non-mapping frontmatter is an error.
+
+    :returns: ``(meta_dict, body_str)`` on success;
+        ``(None, None)`` on parse failure with diagnostics recorded.
+    """
     if not text.startswith("---\n"):
         return {}, text
     match = FRONTMATTER_RE.match(text)
@@ -448,6 +673,15 @@ def load_markdown_file(path: Path, project_root: Path, diagnostics: DiagnosticBa
 
 
 def parse_frontmatter(path: str | Path) -> tuple[dict | None, str | None]:
+    """Read a Markdown file from disk and split off its YAML frontmatter.
+
+    Convenience wrapper around :func:`split_frontmatter` for one-shot
+    use without managing a :class:`DiagnosticBag` directly.
+
+    :param path: Filesystem path to a ``.md`` file (UTF-8 expected).
+    :returns: ``(meta_dict, body_str)`` on success;
+        ``(None, None)`` on read or parse failure.
+    """
     diagnostics = DiagnosticBag()
     file_path = Path(path)
     text = read_utf8_text(file_path, diagnostics)
@@ -1601,6 +1835,36 @@ def write_epub_archive(output_path: Path, modified: datetime, files: list[tuple[
 
 
 def build(project_path: str, output_path: str | None = None) -> bool:
+    """Compile a ProseDown project to an EPUB 3.3 file.
+
+    The primary public entry point. Accepts either a single ``.md`` file
+    (single-file project) or a directory containing ``book.md`` plus
+    numbered chapters (``01-foo.md``, ``02-bar.md``, …). Output is a
+    valid, EPUBCheck-clean EPUB 3.3 archive.
+
+    The build is **deterministic** — identical sources produce identical
+    bytes (modulo timestamps), so commits diff cleanly and reproducible
+    builds work.
+
+    Pipeline:
+
+    1. Resolve the project root (file → its parent dir; dir → itself).
+    2. Read ``book.md`` (or the single file) for frontmatter — title,
+       author, language, optional cover, optional CSS.
+    3. Discover chapters by filename order if multi-file.
+    4. Parse each chapter's frontmatter + body.
+    5. Render Markdown → XHTML via :class:`MarkdownRenderer`.
+    6. Emit the OPF manifest, NCX, navigation document.
+    7. Pack everything into a ZIP per the EPUB 3.3 spec (mimetype
+       file uncompressed and first; everything else deflated).
+
+    :param project_path: Path to a ``.md`` file or project directory.
+    :param output_path: Where to write the ``.epub``. Defaults to the
+        project's slugified title in the project's parent directory.
+    :returns: ``True`` if the build succeeded with no errors. Warnings
+        do not cause a ``False`` return. Diagnostics are emitted to
+        stdout/stderr regardless.
+    """
     diagnostics = DiagnosticBag()
     input_path = Path(project_path).expanduser().resolve()
     if input_path.is_file():
@@ -2177,11 +2441,49 @@ def rewrite_embedded_asset_hrefs(soup: BeautifulSoup, doc_href: str, image_map: 
 
 
 class MarkdownRenderer:
+    """XHTML → Markdown converter used by :func:`deconstruct`.
+
+    Walks a parsed BeautifulSoup tree (the body of an EPUB chapter
+    document) and emits clean Markdown — the kind an author would
+    actually want to edit. **Best-effort**, with documented normalization:
+    we don't try to round-trip every XHTML quirk; instead we choose the
+    Markdown form that's closest to what a person would have typed in
+    the first place.
+
+    Behavior worth knowing about:
+
+    - Headings, lists, blockquotes, code blocks, emphasis/strong, and
+      links are all faithfully converted.
+    - Tables are converted to GFM-style pipe tables.
+    - Images are converted to ``![alt](href)``; figure captions become
+      a paragraph below the image.
+    - Footnotes use the ``[^id]`` Markdown extension format.
+    - Inline styles, classes, and ``epub:type`` attributes are dropped
+      unless they map to specific Markdown features.
+    - Cross-document links are rewritten via :attr:`doc_href_to_md` so
+      they point at the deconstructed Markdown chapter, not the
+      original XHTML.
+
+    :param doc_href_to_md: Map from EPUB document hrefs (as referenced
+        in the source XHTML) to the corresponding output Markdown
+        filenames. Used for rewriting cross-chapter links during
+        rendering.
+    """
+
     def __init__(self, doc_href_to_md: dict[str, str]):
         self.doc_href_to_md = doc_href_to_md
         self.current_doc_href = ""
 
     def render_document(self, root: Tag | BeautifulSoup, current_doc_href: str) -> str:
+        """Convert one EPUB chapter's XHTML body to Markdown.
+
+        :param root: The parsed body element (or document) of the source
+            XHTML.
+        :param current_doc_href: The EPUB-internal href of this document
+            (used for resolving relative links).
+        :returns: Markdown text with blank lines between blocks, no
+            leading/trailing whitespace.
+        """
         self.current_doc_href = current_doc_href
         blocks = self.render_blocks(list(root.children), 0)
         return "\n\n".join(block for block in blocks if block.strip()).strip()
@@ -2413,6 +2715,38 @@ def serialize_frontmatter(meta: dict) -> str:
 
 
 def deconstruct(epub_path: str, output_dir: str | None = None) -> bool:
+    """Convert an EPUB back to a ProseDown project on disk.
+
+    Best-effort EPUB → Markdown. The goal is **readable Markdown an
+    author would want to edit**, not a lossless archive of the original
+    EPUB. Some XHTML artifacts deliberately don't survive because
+    representing them in Markdown would make the source file
+    unreadable (inline ``style`` attributes, custom CSS classes,
+    decorative ``<span>`` wrappers).
+
+    Pipeline:
+
+    1. Open the EPUB as a ZIP, locate ``META-INF/container.xml`` to find
+       the OPF.
+    2. Read OPF metadata: title, authors, language, identifier.
+    3. Read the spine, the navigation document, and any NCX.
+    4. For each spine document, classify by role
+       (cover / titlepage / chapter / glossary / etc.).
+    5. Extract images, fonts, and CSS into ``css/`` and ``images/``
+       under the output directory.
+    6. Convert each chapter's XHTML body to Markdown via
+       :class:`MarkdownRenderer`.
+    7. Write ``book.md`` with the project frontmatter and one ``.md``
+       file per chapter, numbered to preserve spine order.
+
+    :param epub_path: Path to a ``.epub`` file.
+    :param output_dir: Directory to populate with the deconstructed
+        project. Created if it doesn't exist. Defaults to a folder
+        named after the book's title in the EPUB's parent directory.
+    :returns: ``True`` if deconstruction completed without errors.
+        Warnings (lossy conversions, unrecognized features) don't
+        cause a ``False`` return — they're reported on stdout.
+    """
     diagnostics = DiagnosticBag()
     epub_file = Path(epub_path).expanduser().resolve()
     if not epub_file.exists():
@@ -2531,7 +2865,21 @@ def deconstruct(epub_path: str, output_dir: str | None = None) -> bool:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ProseDown CLI — Markdown ↔ EPUB compiler and deconstructor (spec v0.5)")
+    """Console-script entry point.
+
+    Wired up as ``prosedown`` via ``[project.scripts]`` in pyproject.toml.
+    Dispatches to :func:`build` or :func:`deconstruct` depending on the
+    subcommand. Exits with status 0 on success, 1 on any diagnostic error.
+    """
+    parser = argparse.ArgumentParser(
+        prog="prosedown",
+        description="ProseDown CLI — Markdown ↔ EPUB compiler and deconstructor.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"prosedown {__version__}",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     build_parser = subparsers.add_parser("build", help="ProseDown → EPUB")

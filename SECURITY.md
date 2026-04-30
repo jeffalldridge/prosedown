@@ -12,7 +12,7 @@ EPUB extraction, a way to inject arbitrary content into the generated EPUB
 that bypasses sanitization, or anything that could compromise the user's
 machine — please **don't open a public GitHub issue.**
 
-Instead, email **jeff.alldridge@gmail.com** with:
+Instead, email **info@tentstudios.com** with:
 
 - A description of the issue
 - A minimal reproducer (a small `.epub` or `.md` file that triggers it)

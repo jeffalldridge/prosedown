@@ -10,10 +10,10 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Jeff Alldridge", email = "jeff.alldridge@gmail.com" },
+    { name = "Jeff Alldridge", email = "info@tentstudios.com" },
 ]
 maintainers = [
-    { name = "Tent Studios, LLC", email = "jeff.alldridge@gmail.com" },
+    { name = "Tent Studios, LLC", email = "info@tentstudios.com" },
 ]
 keywords = [
     "epub",
@@ -54,12 +54,13 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jeffalldridge/prosedown"
+Homepage = "https://jeffalldridge.github.io/prosedown/"
 Repository = "https://github.com/jeffalldridge/prosedown"
 Documentation = "https://github.com/jeffalldridge/prosedown#readme"
 Changelog = "https://github.com/jeffalldridge/prosedown/blob/main/CHANGELOG.md"
 Issues = "https://github.com/jeffalldridge/prosedown/issues"
 Spec = "https://github.com/jeffalldridge/prosedown/blob/main/spec/prosedown.md"
+Roadmap = "https://github.com/jeffalldridge/prosedown/blob/main/ROADMAP.md"
 
 [project.scripts]
 prosedown = "prosedown:main"

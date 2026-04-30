@@ -37,6 +37,10 @@ htmlcov/
 .claude/
 AGENTS.md
 
+# Personal scratch pad (per-developer, not shared)
+NOTES.md
+TODO.md
+
 # Internal-only docs (planning, audits) — local-only
 docs/internal/
 

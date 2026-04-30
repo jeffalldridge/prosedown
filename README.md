@@ -186,6 +186,11 @@ mapping reference.
 
 ---
 
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) for what's planned for v0.7, v1.0, and
+beyond — plus what's deliberately out of scope.
+
 ## Contributing
 
 PRs welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the setup, PR

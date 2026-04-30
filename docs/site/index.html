@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProseDown — Write books in Markdown, compile to EPUB</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A free, MIT-licensed format for writing books in Markdown and compiling to EPUB. Like Fountain for screenplays. CommonMark + YAML frontmatter, two required fields, no custom syntax.">
+<meta name="theme-color" content="#0d0d12">
+<meta property="og:title" content="ProseDown — Markdown to EPUB">
+<meta property="og:description" content="Like Fountain for screenplays, ProseDown is for ebooks: plain text that compiles to a complex format.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jeffalldridge.github.io/prosedown/">
+<link rel="canonical" href="https://jeffalldridge.github.io/prosedown/">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+    <div class="container">
+        <h1 class="logotype"><span class="prose">prose</span><span class="down">down</span></h1>
+        <p class="tagline">Write books in Markdown. Compile to EPUB.</p>
+        <p class="subtagline">Like <a href="https://fountain.io/">Fountain</a> is for screenplays, ProseDown is for ebooks: plain text that compiles to a complex format. Two required fields, no custom syntax, no lock-in.</p>
+        <div class="cta">
+            <code class="install">pip install prosedown</code>
+            <a class="button primary" href="https://github.com/jeffalldridge/prosedown">View on GitHub →</a>
+            <a class="button" href="https://github.com/jeffalldridge/prosedown/blob/main/spec/prosedown.md">Read the Spec</a>
+        </div>
+        <p class="version">v0.6.1 — initial public release · MIT licensed</p>
+    </div>
+</header>
+
+<section class="section">
+    <div class="container">
+        <h2>The whole tool, in seven lines</h2>
+        <pre class="code"><code><span class="dim">$</span> cat &gt; <span class="kw">on-simplicity.md</span> &lt;&lt;'EOF'
+<span class="meta">---</span>
+<span class="key">title</span>: <span class="str">"On Simplicity"</span>
+<span class="key">author</span>: <span class="str">"Jane Smith"</span>
+<span class="meta">---</span>
+
+<span class="hd"># On Simplicity</span>
+
+The simplest things are often the most profound.
+EOF
+
+<span class="dim">$</span> prosedown build <span class="kw">on-simplicity.md</span> <span class="kw">on-simplicity.epub</span></code></pre>
+        <p>That's a valid <a href="https://www.w3.org/TR/epub-33/">EPUB 3.3</a>. Passes <a href="https://www.w3.org/publishing/epubcheck/">EPUBCheck</a>. Opens in Apple Books, Kobo, Calibre, anything that reads ebooks. Two required frontmatter fields. One Markdown file. No configuration.</p>
+    </div>
+</section>
+
+<section class="section alt">
+    <div class="container">
+        <h2>What happens when you run <code>build</code></h2>
+        <pre class="ascii">
+   <span class="src">your project</span>                  <span class="ops">prosedown build</span>                  <span class="dst">EPUB 3.3</span>
+   ┌────────────────┐         ┌──────────────────┐          ┌──────────────┐
+   │ <span class="kw">book.md</span>        │         │   parse YAML     │          │ <span class="kw">META-INF/</span>    │
+   │ ┌────────────┐ │         │   resolve files  │          │   container.xml │
+   │ │frontmatter │ │  ──▶    │   render *.md    │   ──▶    │ <span class="kw">OEBPS/</span>       │
+   │ ├────────────┤ │         │   build OPF/NCX  │          │   chapters/  │
+   │ │   body     │ │         │   pack ZIP       │          │   nav.xhtml  │
+   │ └────────────┘ │         └──────────────────┘          │   content.opf│
+   │ <span class="kw">01-foo.md</span>      │            <span class="dim">internal</span>             │ <span class="kw">mimetype</span>     │
+   │ <span class="kw">02-bar.md</span>      │                                  │              │
+   │ <span class="kw">cover.jpg</span>      │           <span class="dim">deterministic</span>           └──────────────┘
+   └────────────────┘             <span class="dim">EPUBCheck-clean</span></pre>
+        <p>Everything is auto-detected: cover by filename, CSS by filename, chapter order by filename. Same source produces the same bytes — diff-clean under git, reproducible builds work.</p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <h2>What <code>deconstruct</code> does (the other direction)</h2>
+        <pre class="ascii">
+   <span class="src">existing.epub</span>              <span class="ops">prosedown deconstruct</span>            <span class="dst">readable Markdown</span>
+   ┌────────────────┐         ┌──────────────────┐          ┌──────────────┐
+   │  <span class="kw">.epub</span> (ZIP)   │         │   read OPF       │          │ <span class="kw">book.md</span>      │
+   │   ┌──────────┐ │         │   classify roles │          │   <span class="dim">(frontmatter)</span>│
+   │   │ XHTML    │ │  ──▶    │   walk spine     │   ──▶    │ <span class="kw">000-cover.md</span> │
+   │   │ + assets │ │         │   XHTML→Markdown │          │ <span class="kw">001-chap1.md</span> │
+   │   │ + OPF    │ │         │   extract images │          │ <span class="kw">002-chap2.md</span> │
+   │   └──────────┘ │         └──────────────────┘          │ <span class="kw">images/</span>      │
+   └────────────────┘            <span class="dim">best-effort</span>              │ <span class="kw">css/</span>         │
+                              <span class="dim">documented normalization</span>     └──────────────┘</pre>
+        <p>Building is the <strong>primary</strong> use case — stable and deterministic. Deconstruction is <strong>best-effort</strong> with documented normalization. The goal is readable Markdown an author would want to edit, not a lossless archive of the original EPUB.</p>
+    </div>
+</section>
+
+<section class="section alt">
+    <div class="container">
+        <h2>Why this exists</h2>
+        <p>Most ebook tools fall into one of three buckets:</p>
+        <table class="compare">
+            <thead>
+                <tr><th></th><th>Closed editors<br><small>Vellum, Scrivener</small></th><th>Power tools<br><small>Pandoc, LaTeX</small></th><th>Raw editors<br><small>Sigil, Calibre</small></th><th>ProseDown</th></tr>
+            </thead>
+            <tbody>
+                <tr><th>Plain text source</th><td>—</td><td>✓</td><td>—</td><td>✓</td></tr>
+                <tr><th>Open in any editor</th><td>—</td><td>✓</td><td>—</td><td>✓</td></tr>
+                <tr><th>EPUB output</th><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                <tr><th>Zero config</th><td>✓</td><td>—</td><td>—</td><td>✓</td></tr>
+                <tr><th>Standard Markdown</th><td>n/a</td><td>mostly</td><td>n/a</td><td>✓</td></tr>
+                <tr><th>Free + MIT</th><td>$250</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                <tr><th>EPUB → source</th><td>—</td><td>partial</td><td>—</td><td>✓ <small>best-effort</small></td></tr>
+            </tbody>
+        </table>
+        <p>ProseDown sits between: <strong>plain Markdown source files an author can open in any editor — Obsidian, VS Code, iA Writer, TextEdit — that compile to a professional EPUB by convention, with no configuration.</strong></p>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <h2>Five design principles</h2>
+        <ol class="principles">
+            <li><strong>One file is enough.</strong> A single <code>.md</code> with two YAML lines is a valid project. The barrier is zero.</li>
+            <li><strong>Convention over configuration.</strong> Cover auto-detected. CSS auto-detected. Chapter order from filenames. Authors shouldn't configure what can be inferred.</li>
+            <li><strong>Standard everything.</strong> CommonMark Markdown. Standard YAML. No custom syntax. Lock-in is the enemy of adoption.</li>
+            <li><strong>Two directions.</strong> Build is primary, deterministic. Deconstruct is best-effort, practical.</li>
+            <li><strong>Non-destructive.</strong> Opens cleanly in Obsidian, Hugo, Jekyll. A format that fights your other tools isn't a format worth adopting.</li>
+        </ol>
+    </div>
+</section>
+
+<section class="section alt">
+    <div class="container">
+        <h2>Get started</h2>
+        <div class="get-started">
+            <div>
+                <h3>Install</h3>
+                <pre class="code"><code>pip install prosedown</code></pre>
+                <p><small>Python 3.10+. <a href="https://github.com/jeffalldridge/prosedown/blob/main/docs/quickstart.md">Quickstart guide →</a></small></p>
+            </div>
+            <div>
+                <h3>Read</h3>
+                <p><a href="https://github.com/jeffalldridge/prosedown/blob/main/spec/prosedown.md">The spec</a> · <a href="https://github.com/jeffalldridge/prosedown/blob/main/docs/why-prosedown.md">Why ProseDown</a> · <a href="https://github.com/jeffalldridge/prosedown/blob/main/ROADMAP.md">Roadmap</a></p>
+            </div>
+            <div>
+                <h3>Try the examples</h3>
+                <p><a href="https://github.com/jeffalldridge/prosedown/tree/main/spec/examples">Four example projects</a> from a single-file essay to a multi-part book with images, captions, and a glossary.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="footer">
+    <div class="container">
+        <p>By <a href="https://tent.studio">Tent Studios, LLC</a>. MIT licensed. <a href="https://github.com/jeffalldridge/prosedown">Source on GitHub</a> · <a href="https://github.com/jeffalldridge/prosedown/issues">Issues</a> · <a href="https://github.com/jeffalldridge/prosedown/discussions">Discussions</a></p>
+    </div>
+</footer>
+
+</body>
+</html>

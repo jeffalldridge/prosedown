@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+.eggs/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# IDEs / editors
+.idea/
+.vscode/
+*.swp
+*~
+*.tmp
+
+# AI assistant scratch (per-developer, not shared)
+.claude/
+AGENTS.md
+
+# Internal-only docs (planning, audits) — local-only
+docs/internal/
+
+# macOS junk
+.DS_Store
+*.AppleDouble
+*.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Local corpus (real-world EPUBs; never redistributed)
+spec/source/
+
+# Secrets — defensive
+.env
+.env.*
+!.env.example
+*.pem
+secrets/

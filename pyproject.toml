@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prosedown"
+version = "0.6.1"
+description = "Write books in Markdown, compile to EPUB. Like Fountain for screenplays."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Jeff Alldridge", email = "jeff.alldridge@gmail.com" },
+]
+maintainers = [
+    { name = "Tent Studios, LLC", email = "jeff.alldridge@gmail.com" },
+]
+keywords = [
+    "epub",
+    "markdown",
+    "commonmark",
+    "ebook",
+    "ebook-generator",
+    "publishing",
+    "compiler",
+    "prose",
+    "fountain",
+    "pandoc-alternative",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "beautifulsoup4>=4.12,<5",
+    "EbookLib>=0.18,<1",
+    "html2text>=2024.2.26",
+    "lxml>=5,<7",
+    "Markdown>=3.5,<4",
+    "PyYAML>=6,<7",
+]
+
+[project.urls]
+Homepage = "https://github.com/jeffalldridge/prosedown"
+Repository = "https://github.com/jeffalldridge/prosedown"
+Documentation = "https://github.com/jeffalldridge/prosedown#readme"
+Changelog = "https://github.com/jeffalldridge/prosedown/blob/main/CHANGELOG.md"
+Issues = "https://github.com/jeffalldridge/prosedown/issues"
+Spec = "https://github.com/jeffalldridge/prosedown/blob/main/spec/prosedown.md"
+
+[project.scripts]
+prosedown = "prosedown:main"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+# ---------------------------------------------------------------------------
+# Setuptools configuration
+# ---------------------------------------------------------------------------
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+prosedown = ["data/*.css", "py.typed"]
+
+# ---------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------
+
+[tool.setuptools.dynamic]
+# Reserved for future dynamic version sourcing if we move to a tag-driven
+# scheme. For now, version is pinned in [project].

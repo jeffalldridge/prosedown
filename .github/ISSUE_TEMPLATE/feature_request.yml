@@ -1,0 +1,28 @@
+name: Feature
+description: A use case the tool should support.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What are you trying to do?
+      description: The end goal, in your words.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-flow
+    attributes:
+      label: Current workaround
+      description: How you're solving it today, if at all.
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: Sketch the change. Spec-level or CLI-level?
+    validations:
+      required: false

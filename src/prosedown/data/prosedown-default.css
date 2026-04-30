@@ -1,0 +1,491 @@
+/*
+ * ProseDown Default Stylesheet
+ * Version: 0.5
+ *
+ * Philosophy: classless for core prose, purposeful classes for
+ * structural book elements. Yielding typography — don't fight
+ * reading systems. Let the device and reader preferences win.
+ *
+ * Architecture:
+ *   1. Custom properties (easy theming)
+ *   2. Core prose (classless — element selectors only)
+ *   3. Book structure (purposeful classes for TOC, frontmatter, etc.)
+ *   4. Reading-system safety (what NOT to do)
+ *
+ * Inspired by: Sakura, Simple.css, Standard Ebooks core.css
+ */
+
+
+/* ============================================================
+   1. CUSTOM PROPERTIES
+   ============================================================
+   Authors who export and customize this file can retheme
+   their entire book by changing these variables.
+   ------------------------------------------------------------ */
+
+:root {
+  /* Typography */
+  --font-body: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --font-heading: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --font-size-base: 1rem;
+  --line-height: 1.6;
+  --measure: 38em;
+
+  /* Spacing (vertical rhythm) */
+  --space-xs: 0.5em;
+  --space-sm: 1em;
+  --space-md: 1.5em;
+  --space-lg: 2.5em;
+  --space-xl: 4em;
+
+  /* Paragraph indent */
+  --indent: 1.5em;
+}
+
+
+/* ============================================================
+   2. CORE PROSE — Classless, element selectors only
+   ============================================================
+   This layer makes vanilla Markdown HTML look like a book.
+   No classes needed. If your content is just headings,
+   paragraphs, lists, blockquotes, images, and tables,
+   this handles it.
+   ------------------------------------------------------------ */
+
+/* --- Base --- */
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  max-inline-size: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--space-sm);
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  orphans: 2;
+  widows: 2;
+}
+
+
+/* --- Headings --- */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  line-height: 1.2;
+  margin-block-start: var(--space-lg);
+  margin-block-end: var(--space-sm);
+  -webkit-hyphens: none;
+  -epub-hyphens: none;
+  hyphens: none;
+}
+
+h1 {
+  font-size: 2em;
+  text-align: center;
+  margin-block-start: var(--space-xl);
+  margin-block-end: var(--space-lg);
+}
+
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+h4 { font-size: 1.1em; }
+h5 { font-size: 1em; font-style: italic; }
+h6 { font-size: 1em; font-weight: normal; font-style: italic; }
+
+
+/* --- Paragraphs — Book-style indentation --- */
+
+p {
+  margin-block: 0;
+  text-indent: 0;
+}
+
+/* Continuous prose: indent paragraphs that follow another paragraph */
+p + p {
+  text-indent: var(--indent);
+}
+
+/* No indent after headings, breaks, figures, lists, blockquotes, tables */
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+hr + p,
+figure + p,
+blockquote + p,
+ol + p, ul + p,
+dl + p,
+table + p,
+pre + p {
+  text-indent: 0;
+}
+
+
+/* --- Blockquotes --- */
+
+blockquote {
+  margin-block: var(--space-md);
+  margin-inline: var(--space-md);
+  padding-inline-start: var(--space-sm);
+  border-inline-start: 3px solid currentColor;
+  opacity: 0.85;
+  font-style: italic;
+}
+
+blockquote p + p {
+  text-indent: var(--indent);
+}
+
+blockquote footer,
+blockquote cite {
+  display: block;
+  font-style: normal;
+  margin-block-start: var(--space-xs);
+  text-align: end;
+  font-size: 0.9em;
+}
+
+
+/* --- Lists --- */
+
+ol, ul {
+  margin-block: var(--space-sm);
+  padding-inline-start: var(--space-md);
+}
+
+li {
+  margin-block-end: var(--space-xs);
+}
+
+li > p {
+  text-indent: 0;
+}
+
+
+/* --- Definition Lists (glossaries) --- */
+
+dl {
+  margin-block: var(--space-md);
+}
+
+dt {
+  font-weight: bold;
+  margin-block-start: var(--space-sm);
+}
+
+dd {
+  margin-inline-start: var(--space-md);
+  margin-block-end: var(--space-xs);
+}
+
+
+/* --- Figures & Captions --- */
+
+figure {
+  margin-block: var(--space-md);
+  margin-inline: 0;
+  text-align: center;
+}
+
+figure img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+figcaption {
+  font-size: 0.9em;
+  font-style: italic;
+  margin-block-start: var(--space-xs);
+  opacity: 0.8;
+}
+
+
+/* --- Images (outside figures) --- */
+
+img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+
+/* --- Tables --- */
+
+table {
+  border-collapse: collapse;
+  inline-size: 100%;
+  margin-block: var(--space-md);
+  font-size: 0.9em;
+}
+
+th, td {
+  padding: var(--space-xs) var(--space-sm);
+  text-align: start;
+  border-block-end: 1px solid currentColor;
+  opacity: 0.3;
+}
+
+th {
+  font-weight: bold;
+  opacity: 1;
+  border-block-end-width: 2px;
+}
+
+td {
+  opacity: 1;
+}
+
+/* Subtle row striping */
+tbody tr:nth-child(even) {
+  opacity: 0.95;
+}
+
+
+/* --- Horizontal Rules (Scene Breaks) --- */
+
+hr {
+  border: none;
+  text-align: center;
+  margin-block: var(--space-lg);
+}
+
+hr::after {
+  content: "* * *";
+  letter-spacing: 0.5em;
+  font-size: 0.85em;
+  opacity: 0.5;
+}
+
+
+/* --- Code --- */
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+pre {
+  margin-block: var(--space-md);
+  padding: var(--space-sm);
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border-inline-start: 3px solid currentColor;
+  opacity: 0.9;
+}
+
+pre code {
+  font-size: inherit;
+}
+
+
+/* --- Links --- */
+
+a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+
+/* --- Superscript (footnote refs, verse numbers) --- */
+
+sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  top: -0.4em;
+}
+
+/* Footnote backlinks */
+sup a {
+  text-decoration: none;
+}
+
+
+/* --- Footnotes (end of chapter) --- */
+
+aside[epub|type~="footnote"],
+aside[role~="doc-footnote"] {
+  font-size: 0.85em;
+  margin-block-start: var(--space-lg);
+  padding-block-start: var(--space-sm);
+  border-block-start: 1px solid currentColor;
+  opacity: 0.3;
+}
+
+/* Highlight targeted footnote */
+:target {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+
+/* ============================================================
+   3. BOOK STRUCTURE — Purposeful classes for non-prose
+   ============================================================
+   These classes are emitted by the compiler for structural
+   elements that need specific treatment. Core prose content
+   never needs these.
+   ------------------------------------------------------------ */
+
+/* --- Title Page --- */
+
+.title-page {
+  text-align: center;
+  margin-block-start: 20%;
+}
+
+.title-page h1 {
+  font-size: 2.5em;
+  margin-block-end: var(--space-xs);
+}
+
+.title-page .subtitle {
+  font-size: 1.3em;
+  font-style: italic;
+  font-weight: normal;
+}
+
+.title-page .author {
+  font-size: 1.1em;
+  margin-block-start: var(--space-lg);
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+
+/* --- Copyright / Imprint --- */
+
+.copyright {
+  font-size: 0.85em;
+  margin-block-start: 30%;
+  line-height: 1.8;
+}
+
+.copyright p {
+  text-indent: 0;
+}
+
+.copyright p + p {
+  text-indent: 0;
+  margin-block-start: var(--space-sm);
+}
+
+
+/* --- Dedication --- */
+
+.dedication {
+  text-align: center;
+  font-style: italic;
+  margin-block-start: 25%;
+}
+
+.dedication p {
+  text-indent: 0;
+}
+
+
+/* --- Part Divider --- */
+
+.part-title {
+  text-align: center;
+  margin-block-start: 30%;
+}
+
+.part-title h1 {
+  font-size: 2em;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+
+/* --- Table of Contents --- */
+
+nav[epub|type~="toc"],
+nav[role~="doc-toc"] {
+  margin-block: var(--space-lg);
+}
+
+nav[epub|type~="toc"] ol,
+nav[role~="doc-toc"] ol {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+nav[epub|type~="toc"] li,
+nav[role~="doc-toc"] li {
+  margin-block-end: var(--space-xs);
+}
+
+nav[epub|type~="toc"] a,
+nav[role~="doc-toc"] a {
+  text-decoration: none;
+}
+
+/* Nested (part > chapter) */
+nav[epub|type~="toc"] ol ol,
+nav[role~="doc-toc"] ol ol {
+  padding-inline-start: var(--space-md);
+  margin-block-start: var(--space-xs);
+}
+
+
+/* ============================================================
+   4. READING-SYSTEM SAFETY
+   ============================================================
+   What NOT to do. Respect the device. Respect the reader.
+   ------------------------------------------------------------ */
+
+/*
+ * DO NOT force body background color — breaks dark mode
+ * DO NOT force body text color globally — disappears on inverted themes
+ * DO NOT set fixed font-family on body text if shipping as EPUB
+ *   (the vars above are for browser preview; EPUB compilers
+ *    SHOULD strip or soften font-family for device compatibility)
+ * DO NOT use !important — reader preferences must win
+ * DO NOT use px for font sizes — use em/rem
+ * DO NOT use physical properties (margin-left) — use logical (margin-inline-start)
+ *   (Already done throughout this file)
+ */
+
+
+/* --- Dark Mode (for browser preview / modern readers) --- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    color: #e0e0e0;
+    background-color: #1a1a1a;
+  }
+
+  img {
+    filter: brightness(0.85) contrast(1.05);
+  }
+
+  hr::after {
+    opacity: 0.4;
+  }
+}
+
+
+/* --- Print --- */
+
+@media print {
+  body {
+    max-inline-size: none;
+    padding: 0;
+    font-size: 11pt;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  figure, table, pre {
+    page-break-inside: avoid;
+  }
+}

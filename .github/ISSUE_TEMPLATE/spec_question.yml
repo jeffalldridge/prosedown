@@ -1,0 +1,49 @@
+name: Spec question / proposal
+description: Question or proposed change to the ProseDown spec itself.
+title: "[Spec] "
+labels: ["spec"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for questions about the spec text or proposals
+        to change it. Spec changes affect every conforming compiler, so
+        we discuss before implementing.
+
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      description: Which section of `spec/prosedown.md` is this about?
+      placeholder: e.g. "Frontmatter — required fields"
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or proposal
+      description: |
+        Describe the issue. Cite specific lines if helpful.
+        Reference EPUB 3.3 / CommonMark / RFC sections where applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale
+      description: Why does this matter? What does it enable / fix?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Breaking?
+      options:
+        - "No — clarification only"
+        - "Yes — would require existing projects to change"
+        - "Unsure"
+    validations:
+      required: true
